@@ -9,7 +9,7 @@ from solcx import (
 class Account:
     def __init__(self, public: str, private: str):
         assert int(public, 16) < int(private, 16)
-        self.public = public
+        self.public = _Web3.to_checksum_address(public)
         self.private = private
 
 
@@ -25,6 +25,21 @@ class Web3:
 
     def get_balance(self) -> int:
         return self.w3.eth.get_balance(self.account.public)
+
+    def transfer(self, value: int, destination: str):
+        nonce = self.w3.eth.get_transaction_count(self.account.public)
+        gas_price = float(self.w3.from_wei(self.w3.eth.gas_price, "ether"))
+        allowed_gas = int(0.0005 / gas_price)
+        tx = {
+            "nonce": nonce,
+            "to": destination,
+            "value": value,
+            "gasPrice": self.w3.eth.gas_price,
+            "gas": allowed_gas,
+        }
+        signed_tx = self.w3.eth.account.sign_transaction(tx, self.account.private)
+        tx_hash = self.w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        return self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
     def compile(
         self, source: str, version: str = "0.8.0"
@@ -52,12 +67,27 @@ class Web3:
 
 class Contract:
     def __init__(self, web3, address: str, abi):
+        address = _Web3.to_checksum_address(address)
         self.web3 = web3
         self.address = address
         self.contract = web3.w3.eth.contract(address=address, abi=abi)
 
-    def call(self, method, *args):
+    def call(self, method: str, *args):
         return getattr(self.contract.functions, method)(*args).call()
+
+    def call_transaction(self, method: str, *args):
+        w3 = self.web3.w3
+        nonce = w3.eth.get_transaction_count(self.web3.account.public)
+        Chain_id = w3.eth.chain_id
+        transaction = getattr(self.contract.functions, method)(*args).build_transaction(
+            {"chainId": Chain_id, "from": self.web3.account.public, "nonce": nonce}
+        )
+        signed_tx = w3.eth.account.sign_transaction(
+            transaction,
+            private_key=self.web3.account.private,
+        )
+        tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+        return w3.eth.wait_for_transaction_receipt(tx_hash)
 
 
 class ContractDefinition:
