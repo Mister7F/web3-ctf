@@ -44,7 +44,7 @@ class Web3:
     def compile(
         self, source: str, version: str = "0.8.0"
     ) -> list["ContractDefinition"]:
-        _install_solc("0.8.0")
+        _install_solc(version)
         compiled_sol = _compile_source(
             f"""
             //SPDX-License-Identifier: UNLICENSED
