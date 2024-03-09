@@ -75,12 +75,17 @@ class Contract:
     def call(self, method: str, *args):
         return getattr(self.contract.functions, method)(*args).call()
 
-    def call_transaction(self, method: str, *args):
+    def call_transaction(self, method: str, *args, value: int = 0):
         w3 = self.web3.w3
         nonce = w3.eth.get_transaction_count(self.web3.account.public)
         Chain_id = w3.eth.chain_id
         transaction = getattr(self.contract.functions, method)(*args).build_transaction(
-            {"chainId": Chain_id, "from": self.web3.account.public, "nonce": nonce}
+            {
+                "chainId": Chain_id,
+                "from": self.web3.account.public,
+                "nonce": nonce,
+                "value": value,
+            }
         )
         signed_tx = w3.eth.account.sign_transaction(
             transaction,
